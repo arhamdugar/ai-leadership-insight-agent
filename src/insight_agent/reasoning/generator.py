@@ -69,19 +69,26 @@ def _format_context(chunks: list[dict]) -> str:
 
 
 def _call_llm(prompt: str, cfg: Config) -> str:
-    """Make a single Gemini generation call and return the response text."""
+    """
+    Make a Gemini generation call for Task 1 Q&A.
+
+    Uses cfg.fast_llm_model (gemini-2.5-flash) — structured document Q&A
+    is a fast-tier task. The Pro model is reserved for the Agent's final
+    strategic synthesis in Task 2.
+    """
+    model_name = cfg.fast_llm_model
     try:
         genai.configure(api_key=cfg.api_key)
         model = genai.GenerativeModel(
-            cfg.llm_model,
+            model_name,
             generation_config=genai.GenerationConfig(
                 temperature=cfg.llm_temperature,
-                max_output_tokens=cfg.llm_max_tokens,
+                max_output_tokens=cfg.fast_llm_max_tokens,
             ),
         )
         return model.generate_content(prompt).text
     except Exception as exc:
-        raise GenerationError(f"LLM call failed: {exc}") from exc
+        raise GenerationError(f"LLM call failed [{model_name}]: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +129,7 @@ def generate_answer(
     context = _format_context(chunks)
     prompt = _SYSTEM_PROMPT.format(context=context, question=question)
 
-    logger.info("Calling LLM (%s) for question: %s...", cfg.llm_model, question[:60])
+    logger.info("Calling LLM (%s) for question: %s...", cfg.fast_llm_model, question[:60])
     answer = _call_llm(prompt, cfg)
     logger.debug("LLM response length: %d chars", len(answer))
     return answer

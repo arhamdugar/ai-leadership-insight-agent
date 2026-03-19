@@ -23,7 +23,9 @@ from langgraph.graph import StateGraph, END
 
 from insight_agent.config import Config
 from insight_agent.exceptions import AgentError
-from insight_agent.retrieval.retriever import retrieve, FusedChunk
+from insight_agent.retrieval.embedder import EmbedderClient
+from insight_agent.retrieval.bm25 import BM25Index
+from insight_agent.retrieval.retriever import reciprocal_rank_fusion, FusedChunk
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +39,9 @@ _MAX_ITERATIONS = 2
 
 class AgentState(TypedDict):
     question: str
-    sub_questions: Annotated[list[str], operator.add]
-    retrieved_chunks: Annotated[list[dict], operator.add]
+    sub_questions: Annotated[list[str], operator.add]     # accumulates via operator.add
+    retrieved_chunks: Annotated[list[dict], operator.add]  # accumulates via operator.add
+    processed_questions: Annotated[list[str], operator.add]  # tracks already-retrieved Qs
     draft_answer: str
     iteration: int
     final_answer: str
@@ -50,20 +53,34 @@ class AgentState(TypedDict):
 # ---------------------------------------------------------------------------
 
 
-def _llm(prompt: str, cfg: Config) -> str:
-    """Thin LLM wrapper with error conversion."""
+def _llm(prompt: str, cfg: Config, *, model_override: str | None = None) -> str:
+    """
+    Thin LLM wrapper with optional model override.
+
+    Args:
+        prompt:         The full prompt string.
+        cfg:            Config singleton.
+        model_override: If provided, use this model instead of cfg.llm_model.
+                        Pass cfg.fast_llm_model for intermediate/helper calls.
+    """
+    model_name = model_override or cfg.llm_model
+    max_tokens = (
+        cfg.fast_llm_max_tokens
+        if model_override == cfg.fast_llm_model
+        else cfg.llm_max_tokens
+    )
     try:
         genai.configure(api_key=cfg.api_key)
         model = genai.GenerativeModel(
-            cfg.llm_model,
+            model_name,
             generation_config=genai.GenerationConfig(
                 temperature=cfg.llm_temperature,
-                max_output_tokens=cfg.llm_max_tokens,
+                max_output_tokens=max_tokens,
             ),
         )
         return model.generate_content(prompt).text
     except Exception as exc:
-        raise AgentError(f"Agent LLM call failed: {exc}") from exc
+        raise AgentError(f"Agent LLM call failed [{model_name}]: {exc}") from exc
 
 
 def _format_chunks(chunks: list[dict]) -> str:
@@ -82,7 +99,10 @@ def _format_chunks(chunks: list[dict]) -> str:
 
 
 def _node_decompose(state: AgentState) -> dict:
-    """Break the strategic question into 2–3 focused sub-questions."""
+    """Break the strategic question into 2–3 focused sub-questions.
+
+    Uses gemini-2.5-flash — simple structured decomposition, no deep reasoning needed.
+    """
     cfg = Config()
     prompt = (
         f"You are a strategic research assistant.\n"
@@ -91,7 +111,8 @@ def _node_decompose(state: AgentState) -> dict:
         f"Return ONLY the sub-questions as a numbered list (1., 2., 3.) — nothing else.\n\n"
         f"Question: {state['question']}"
     )
-    text = _llm(prompt, cfg)
+    # Flash is sufficient for straightforward decomposition
+    text = _llm(prompt, cfg, model_override=cfg.fast_llm_model)
 
     # Parse numbered list
     sub_qs: list[str] = []
@@ -102,32 +123,53 @@ def _node_decompose(state: AgentState) -> dict:
 
     sub_qs = sub_qs[:3]  # hard cap at 3
     logger.info("[agent] Decomposed into %d sub-questions: %s", len(sub_qs), sub_qs)
-    return {"sub_questions": sub_qs, "iteration": 0}
+    return {"sub_questions": sub_qs, "processed_questions": [], "iteration": 0}
 
 
 def _node_retrieve(state: AgentState) -> dict:
-    """Run hybrid retrieval for every new sub-question."""
+    """Run hybrid retrieval only for sub-questions not yet processed."""
+    already_done = set(state.get("processed_questions", []))
+    pending = [q for q in state["sub_questions"] if q not in already_done]
+
+    if not pending:
+        logger.info("[agent] No new sub-questions to retrieve — skipping.")
+        return {"retrieved_chunks": [], "processed_questions": []}
+
+    # Instantiate clients once per node call (not once per sub-question)
+    cfg = Config()
+    embedder = EmbedderClient(cfg)
+    bm25 = BM25Index.load(cfg.bm25_path)
+
     existing_texts = {c["chunk_text"][:80] for c in state.get("retrieved_chunks", [])}
     new_chunks: list[dict] = []
+    newly_processed: list[str] = []
 
-    for q in state["sub_questions"]:
-        results: list[FusedChunk] = retrieve(q)
+    for q in pending:
+        query_vec = embedder.embed_query(q)
+        dense = embedder.query(query_vec, top_k=cfg.top_k_dense)
+        sparse = bm25.search(q, top_k=cfg.top_k_sparse)
+        results = reciprocal_rank_fusion(dense, sparse, top_k=cfg.top_k_final)
         for chunk in results:
             key = chunk["chunk_text"][:80]
             if key not in existing_texts:
                 new_chunks.append(dict(chunk))
                 existing_texts.add(key)
+        newly_processed.append(q)
+        logger.info("[agent] Retrieved %d new chunks for: %s...", len(results), q[:50])
 
     logger.info(
-        "[agent] Retrieved %d new unique chunks (total: %d)",
+        "[agent] Total new unique chunks this pass: %d",
         len(new_chunks),
-        len(state.get("retrieved_chunks", [])) + len(new_chunks),
     )
-    return {"retrieved_chunks": new_chunks}
+    return {"retrieved_chunks": new_chunks, "processed_questions": newly_processed}
 
 
 def _node_synthesise(state: AgentState) -> dict:
-    """Synthesise a structured strategic recommendation from all retrieved chunks."""
+    """Synthesise a structured strategic recommendation from all retrieved chunks.
+
+    Uses gemini-2.5-pro — this is the final, high-stakes output where reasoning
+    quality and accuracy matter most. Rate-limit budget is spent here intentionally.
+    """
     cfg = Config()
     context = _format_chunks(state.get("retrieved_chunks", []))
 
@@ -149,13 +191,18 @@ def _node_synthesise(state: AgentState) -> dict:
         f"---\n\nSTRATEGIC QUESTION: {state['question']}"
     )
 
-    draft = _llm(prompt, cfg)
+    # Pro model for final synthesis — maximum reasoning quality
+    draft = _llm(prompt, cfg)  # uses cfg.llm_model = gemini-2.5-pro
     logger.info("[agent] Draft synthesised (%d chars)", len(draft))
     return {"draft_answer": draft}
 
 
 def _node_reflect(state: AgentState) -> dict:
-    """Self-critique the draft; loop if insufficient and under iteration limit."""
+    """Self-critique the draft; loop if insufficient and under iteration limit.
+
+    Uses gemini-2.5-flash — yes/no evaluation is a simple task that doesn't
+    warrant the Pro model. Keeps rate-limit budget for final synthesis.
+    """
     cfg = Config()
     iteration = state.get("iteration", 0)
 
@@ -173,7 +220,8 @@ def _node_reflect(state: AgentState) -> dict:
         f'  NO: <one concise new sub-question that would fill the most important gap>\n\n'
         f"Your response:"
     )
-    verdict = _llm(prompt, cfg).strip()
+    # Flash is sufficient for yes/no self-critique evaluation
+    verdict = _llm(prompt, cfg, model_override=cfg.fast_llm_model).strip()
     logger.info("[agent] Reflect verdict (iter %d): %s", iteration, verdict[:80])
 
     if verdict.upper().startswith("YES"):
@@ -258,6 +306,7 @@ def run_agent(question: str) -> tuple[str, list[str]]:
         "question": question,
         "sub_questions": [],
         "retrieved_chunks": [],
+        "processed_questions": [],
         "draft_answer": "",
         "iteration": 0,
         "final_answer": "",

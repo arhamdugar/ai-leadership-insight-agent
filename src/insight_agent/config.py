@@ -88,7 +88,7 @@ class Config:
 
     @property
     def llm_model(self) -> str:
-        return self._get("llm", "model", default="gemini-1.5-flash")
+        return self._get("llm", "model", default="gemini-2.5-flash")
 
     @property
     def llm_temperature(self) -> float:
@@ -96,7 +96,16 @@ class Config:
 
     @property
     def llm_max_tokens(self) -> int:
-        return int(self._get("llm", "max_tokens", default=2048))
+        return int(self._get("llm", "max_tokens", default=4096))
+
+    # Fast LLM — used for decompose, reflect, and Task 1 Q&A calls
+    @property
+    def fast_llm_model(self) -> str:
+        return self._get("fast_llm", "model", default="gemini-2.5-flash")
+
+    @property
+    def fast_llm_max_tokens(self) -> int:
+        return int(self._get("fast_llm", "max_tokens", default=2048))
 
     # ------------------------------------------------------------------
     # Embedding

@@ -1,8 +1,8 @@
 # AI Leadership Insight & Decision Agent
 
-> **Adobe GenAI Engineering Assignment** · March 2025
+> **Open Source Project**
 
-An agentic RAG system that ingests company documents and returns grounded, structured leadership reports — powered by Gemini 1.5 Flash, LangGraph, and Hybrid Retrieval.
+An agentic RAG system that ingests company documents and returns grounded, structured leadership reports — powered by Gemini 2.5 Flash, LangGraph, and Hybrid Retrieval.
 
 ---
 
@@ -28,6 +28,21 @@ Strategic Question ──► Decompose ──► Retrieve ──► Synthesise �
                                                           │
                                                      if done ──► END
 ```
+
+---
+
+## Methodology
+
+### 1. Hybrid Retrieval (Sparse + Dense)
+Standard RAG often misses specific keywords or technical terms. This system implements **Hybrid Retrieval** to ensure zero-loss context:
+- **Dense Retrieval:** Uses `gemini-embedding-001` to find chunks based on semantic meaning (vector similarity).
+- **Sparse Retrieval:** Uses `BM25` to find chunks based on exact keyword matches (lexical similarity).
+- **Reciprocal Rank Fusion (RRF):** Merges both result sets using the RRF algorithm, which mathematically boosts chunks that appear high in both lists, ensuring the most relevant context reaches the LLM.
+
+### 2. Multi-Step Agentic Reasoning (LangGraph)
+Strategic questions are rarely answered by a single search. The **Decision Agent** uses a directed acyclic graph (DAG) to:
+- **Decompose:** Logic-gate to break 1 complex question into 3 targeted sub-queries.
+- **Synthesize & Reflect:** After generating a draft, the agent crititques its own answer. If it identifies a data gap, it loops back to retrieval for more specific evidence before finalizing.
 
 ---
 
@@ -91,8 +106,9 @@ ai-leadership-insight-agent/
 
 | Component | Tool |
 |-----------|------|
-| LLM | `gemini-1.5-flash` |
-| Embeddings | `models/text-embedding-004` |
+| LLM (Reasoning) | `gemini-2.5-flash` |
+| LLM (Fast/Intermediate) | `gemini-2.5-flash` |
+| Embeddings | `models/gemini-embedding-001` |
 | Vector DB | ChromaDB (local, persistent) |
 | Keyword search | BM25 via `rank-bm25` |
 | Retrieval fusion | Reciprocal Rank Fusion (RRF) |
@@ -127,7 +143,13 @@ make install
 api_key: "YOUR_GEMINI_API_KEY_HERE"
 ```
 
-**Option B** — Set environment variable (takes precedence):
+**Option B** — Use a `.env` file (Recommended):
+Create a file named `.env` in the project root:
+```env
+GEMINI_API_KEY=your_key_here
+```
+
+**Option C** — Set environment variable:
 ```bash
 # Windows PowerShell
 $env:GEMINI_API_KEY = "your_key_here"
@@ -162,6 +184,23 @@ make run
 
 ---
 
+## Interactive Notebook Tester
+
+If you prefer to test the agent logic directly in Python without starting the Streamlit UI, a Jupyter Notebook is provided:
+
+1. Install Jupyter (if not already installed via `requirements.txt`):
+   ```bash
+   pip install jupyter
+   ```
+2. Launch the notebook:
+   ```bash
+   jupyter notebook interactive_agent_tester.ipynb
+   ```
+
+This notebook will initialize the environment, connect to Chroma/BM25, and let you run the Insight Agent (Task 1) and Decision Agent (Task 2) interactively while observing the internal LangGraph thought process in the cell outputs.
+
+---
+
 ## Running Tests
 
 Tests do **not** require a Gemini API key — they test pure Python logic:
@@ -193,12 +232,17 @@ All parameters live in `config.yaml`:
 api_key: "YOUR_GEMINI_API_KEY_HERE"   # Or set GEMINI_API_KEY env var
 
 llm:
-  model: gemini-1.5-flash
+  model: gemini-2.5-flash
+  temperature: 0.1
+  max_tokens: 4096
+
+fast_llm:
+  model: gemini-2.5-flash
   temperature: 0.1
   max_tokens: 2048
 
 embedding:
-  model: models/text-embedding-004
+  model: models/gemini-embedding-001
 
 retrieval:
   top_k_dense: 10     # ChromaDB results
@@ -206,8 +250,8 @@ retrieval:
   top_k_final: 5      # After RRF fusion
 
 chunking:
-  chunk_size: 600     # Characters (approx)
-  chunk_overlap: 80
+  chunk_size: 512     # Characters (approx)
+  chunk_overlap: 64
 ```
 
 ---

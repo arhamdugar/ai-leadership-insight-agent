@@ -21,11 +21,17 @@ _CSS = """
 
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
-/* ── Main background ─────────────────────────────────────────────────── */
+/* ─ Main background ──────────────────────────────────────────────────── */
 .stApp {
     background: linear-gradient(135deg, #080d18 0%, #0c1220 60%, #080d18 100%);
     color: #e2e8f0;
 }
+
+/* ─ Hide Streamlit Defaults ────────────────────────────────────────── */
+#MainMenu {visibility: hidden;}
+header {visibility: hidden;}
+footer {visibility: hidden;}
+.stDeployButton {display: none;}
 
 /* ── Hero header ─────────────────────────────────────────────────────── */
 .hero-header {
@@ -201,11 +207,11 @@ def render() -> None:
           <div class="hero-title">🧠 AI Leadership Insight &amp; Decision Agent</div>
           <div class="hero-subtitle">
             Grounded intelligence from your company documents &nbsp;&middot;&nbsp;
-            Powered by Gemini 1.5 Flash &nbsp;&middot;&nbsp;
+            Powered by Gemini 2.5 Flash &nbsp;&middot;&nbsp;
             Hybrid RAG + LangGraph Agentic Reasoning
           </div>
           <div class="hero-badges">
-            <span class="badge">⬡ Gemini 1.5 Flash</span>
+            <span class="badge">⬡ Gemini 2.5 Flash</span>
             <span class="badge">⬡ ChromaDB + BM25 Hybrid Retrieval</span>
             <span class="badge">⬡ LangGraph Agent</span>
             <span class="badge">⬡ Reciprocal Rank Fusion</span>
@@ -228,7 +234,7 @@ def render() -> None:
     st.markdown(
         "<p style='text-align:center;color:#1e3461;font-size:0.76rem;'>"
         "AI Leadership Insight Agent &nbsp;·&nbsp; "
-        "Gemini 1.5 Flash &nbsp;·&nbsp; ChromaDB &nbsp;·&nbsp; LangGraph"
+        "Gemini 2.5 Series &nbsp;·&nbsp; ChromaDB &nbsp;·&nbsp; LangGraph"
         "</p>",
         unsafe_allow_html=True,
     )
