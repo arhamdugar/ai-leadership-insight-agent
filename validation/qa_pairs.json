@@ -1,0 +1,82 @@
+[
+  {
+    "id": "q01",
+    "category": "revenue_trend",
+    "question": "What is the FY2024 annual revenue?",
+    "expected_answer": "$2.4 billion",
+    "source_docs": ["FY2024_Annual_Report.md"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "q02",
+    "category": "revenue_trend",
+    "question": "What was the year-over-year revenue growth rate in FY2024?",
+    "expected_answer": "14% year-over-year",
+    "source_docs": ["FY2024_Annual_Report.md"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "q03",
+    "category": "regional_performance",
+    "question": "Which region was the strongest performer in FY2024?",
+    "expected_answer": "Americas at +18% YoY",
+    "source_docs": ["FY2024_Annual_Report.md"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "q04",
+    "category": "regional_performance",
+    "question": "By how much did APAC miss its FY2024 revenue target?",
+    "expected_answer": "$50 million short of the $390M target",
+    "source_docs": ["FY2024_Annual_Report.md"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "q05",
+    "category": "margin_analysis",
+    "question": "What was the EBITDA margin in FY2024?",
+    "expected_answer": "22.5%",
+    "source_docs": ["FY2024_Annual_Report.md"],
+    "difficulty": "easy"
+  },
+  {
+    "id": "q06",
+    "category": "quarterly_trends",
+    "question": "What was Q3 FY2024 revenue and how did it compare to Q3 FY2023?",
+    "expected_answer": "$640M in Q3 FY2024, up 14% from $564M in Q3 FY2023",
+    "source_docs": ["Q3_FY2024_Quarterly_Report.md"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "q07",
+    "category": "risk_identification",
+    "question": "What are the top strategic risks identified for the company?",
+    "expected_answer": "APAC underperformance, customer concentration, macroeconomic headwinds, talent retention",
+    "source_docs": ["FY2024_Annual_Report.md"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "q08",
+    "category": "strategic_expansion",
+    "question": "What are the options for entering the Southeast Asian market?",
+    "expected_answer": "Organic expansion (Singapore HQ), strategic acquisition ($120M-$200M), or partnership/distribution model",
+    "source_docs": ["APAC_Strategy_Note_Oct2024.md"],
+    "difficulty": "hard"
+  },
+  {
+    "id": "q09",
+    "category": "apac_analysis",
+    "question": "Which APAC subregion is the fastest growing?",
+    "expected_answer": "India at +21% YoY",
+    "source_docs": ["APAC_Strategy_Note_Oct2024.md"],
+    "difficulty": "medium"
+  },
+  {
+    "id": "q10",
+    "category": "forward_guidance",
+    "question": "What is the FY2025 revenue guidance?",
+    "expected_answer": "$2.75B to $2.85B, representing 15-19% year-over-year growth",
+    "source_docs": ["FY2024_Annual_Report.md"],
+    "difficulty": "easy"
+  }
+]
