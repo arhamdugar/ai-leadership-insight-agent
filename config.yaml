@@ -1,0 +1,26 @@
+api_key: ""  # Leave blank — set GEMINI_API_KEY=your_key in .env
+
+# Primary LLM — used for deep reasoning and final strategic synthesis (Task 2 agent)
+llm:
+  model: gemini-2.5-flash
+  temperature: 0.1
+  max_tokens: 4096
+
+# Fast LLM — used for decomposition, reflection, Task 1 Q&A, and all intermediate calls
+fast_llm:
+  model: gemini-2.5-flash
+  temperature: 0.1
+  max_tokens: 2048
+
+# Embeddings — updated from deprecated models/text-embedding-004
+embedding:
+  model: models/gemini-embedding-001
+
+retrieval:
+  top_k_dense: 10
+  top_k_sparse: 10
+  top_k_final: 5
+
+chunking:
+  chunk_size: 512
+  chunk_overlap: 64

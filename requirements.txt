@@ -1,0 +1,26 @@
+# Core
+google-generativeai>=0.8.0
+langchain-google-genai>=2.0.0
+langchain>=0.3.0
+langgraph>=0.2.0
+chromadb>=0.5.0
+
+# Document parsing
+pdfplumber>=0.11.0
+python-docx>=1.1.0
+
+# Retrieval
+rank-bm25>=0.2.2
+
+# UI & Output
+streamlit>=1.40.0
+matplotlib>=3.9.0
+
+# Config & Utilities
+pyyaml>=6.0.2
+python-dotenv>=1.0.0
+
+# Dev / Testing
+pytest>=8.0.0
+pytest-mock>=3.14.0
+ruff>=0.4.0
